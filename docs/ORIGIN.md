@@ -213,3 +213,26 @@ This project was designed in a live Slack conversation on **March 18, 2026** bet
 **Cleo — 17:37**
 
 > Recommended subdomain (`jobs.keithheacock.com`) over path-based routing (`keithheacock.com/jobs`) — no changes to React app, cleaner nginx config, reads better on a resume. Added full setup to DEPLOYMENT.md: DNS (A record → VPS), nginx server block with TLS via Certbot, `trust proxy` Express config, CORS update.
+
+---
+
+**Keith — 17:45**
+
+> Ok, railway is added to GitHub. Do phase 1
+
+---
+
+**Cleo — 17:45**
+
+> Scaffolded full Phase 1: DB migrations, seed data, migration runner, Express skeleton.
+>
+> Files added:
+> - `docker-compose.yml` — Postgres + Jaeger for local dev
+> - `server/package.json` — all dependencies declared
+> - `server/.env.example` — all env vars documented
+> - `server/src/db/pool.mjs` — pg Pool with SSL in prod
+> - `server/src/db/migrate.mjs` — migration runner (up/undo/reset)
+> - `server/src/db/migrations/001–006` — all tables with up/down SQL
+> - `server/src/db/seed.mjs` — 5 realistic jobs across all statuses
+> - `server/src/index.mjs` — Express skeleton with `/health` + `/api/schema-check`
+> - `.github/workflows/ci.yml` — npm audit + migration smoke test on every push
