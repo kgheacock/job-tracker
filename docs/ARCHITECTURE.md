@@ -36,6 +36,57 @@ Job Tracker is a standard client-server application with a clear separation betw
 
 **5. Auth is stateless.** JWTs issued at login, verified by middleware on protected routes. No sessions, no cookies. Short-lived access tokens + refresh token rotation.
 
+## Logging
+
+Logging is treated as an operational requirement, not an afterthought.
+
+### What Gets Logged
+
+| Event                        | Level | Notes                                           |
+|------------------------------|-------|-------------------------------------------------|
+| Incoming requests            | info  | method, path, status, latency — via morgan      |
+| Auth failures (401/403)      | warn  | includes reason (expired, invalid, missing)     |
+| Validation errors (400)      | info  | expected, not alarming                          |
+| Resource not found (404)     | info  | expected                                        |
+| Unhandled errors (500)       | error | full stack trace                                |
+| DB query errors              | error | query context, no user data in message          |
+| AI API calls                 | info  | jobId, latency, token count — no resume text    |
+| Login attempts               | info  | email (success or failure), no passwords ever   |
+
+### What Never Gets Logged
+
+- Passwords or password hashes
+- JWT tokens
+- Full request/response bodies on auth routes
+- Resume text sent to the AI endpoint
+- Any PII beyond email on login events
+
+### Implementation
+
+- **`morgan`** for HTTP request logging (combined format in prod, dev format locally)
+- **`pino`** for structured application logging — outputs JSON in production, pretty-printed in development
+- Log level controlled by `LOG_LEVEL` env var (default: `info` in prod, `debug` in dev)
+- All logs go to stdout — the deployment platform (Railway) captures and stores them
+- No log files on disk; no log rotation complexity
+
+### Example log shape (prod)
+```json
+{
+  "level": "info",
+  "time": "2026-03-18T17:00:00.000Z",
+  "msg": "auth.login.success",
+  "email": "user@example.com",
+  "userId": "uuid-here",
+  "latencyMs": 42
+}
+```
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for the full OWASP Top 10 analysis.
+
+Summary: the primary surface area is auth (JWT handling, password storage) and access control (ensuring users can only access their own data). Injection is mitigated by parameterized queries throughout. The app has no file uploads, no XML parsing, and no third-party component complexity beyond its direct dependencies.
+
 ## Build Phases
 
 ### Phase 1 — Core CRUD (no auth)
