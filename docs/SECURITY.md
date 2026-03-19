@@ -137,12 +137,13 @@ No shell commands are executed. No `eval`. The AI endpoint passes user-supplied 
 
 **How we address it:**
 
-Covered in detail in [ARCHITECTURE.md — Logging](ARCHITECTURE.md#logging). Summary:
+Covered in detail in [ARCHITECTURE.md — Observability](ARCHITECTURE.md#observability). Summary:
 
-- All auth events (login success/failure, token errors) are logged with structured JSON including timestamp, email, and outcome.
-- All 4xx/5xx responses are logged with route and status.
-- No sensitive data (passwords, tokens, resume text) in logs.
-- In production, Railway captures stdout logs. Log retention and alerting can be added by piping to a log aggregator (e.g. Logtail, Papertrail) — straightforward since logs are already stdout JSON.
+- Traces (not logs) are the primary signal. All auth events, API calls, and DB queries are captured as OTel spans.
+- Every request carries a `correlation_id` that ties client errors, API calls, and DB queries into a single traceable unit.
+- Client-side exceptions are reported to `POST /api/errors` and recorded as trace span events — not raw logs.
+- No sensitive data (passwords, tokens, resume text, PII beyond user_id) appears in any span attribute.
+- Rate limiting and deduplication on the error reporting endpoint prevent abuse and noise.
 
 ---
 

@@ -162,3 +162,30 @@ This project was designed in a live Slack conversation on **March 18, 2026** bet
 **Cleo — 17:08**
 
 > *(Rewrote ORIGIN.md as this verbatim transcript)*
+
+---
+
+**Keith — 17:22**
+
+> Remember to keep updating this log. Instead of logs we should focus on Otel traces stitched together by a unique identifier. Additionally, do you have a recommendation on how to securely log client side data? For example, if a user encountered a client side exception, how would we know about this?
+
+---
+
+**Cleo — 17:22**
+
+> Good catch on the log. Updated ARCHITECTURE.md — replaced the Logging section wholesale with an Observability section. Key changes:
+>
+> **OTel traces as the primary signal:**
+> - `@opentelemetry/sdk-node` auto-instruments Express, `pg`, and outbound HTTP
+> - Every span carries a `correlation_id` (UUID generated client-side, threaded through all layers via `x-correlation-id` header)
+> - Export to Jaeger locally, Grafana Cloud or Honeycomb free tier in prod
+> - `user_id` on authenticated spans, never email or other PII
+>
+> **Client-side error reporting:**
+> - `ErrorBoundary` + `window.onerror` / `window.onunhandledrejection` catch all client errors
+> - POST to `POST /api/errors` (unauthenticated, rate-limited at 10 req/IP/min)
+> - Payload includes: message, stack trace, `correlationId` (ties it to the last server request), current route, user agent
+> - Server records it as a span event on a trace — not a raw log
+> - Source maps uploaded to private storage at build time; stack traces are resolved server-side, maps never served publicly
+> - Deduplication by message+stack hash to suppress noise storms
+> - Nothing sensitive (tokens, passwords, resume text, field contents) ever in the payload
