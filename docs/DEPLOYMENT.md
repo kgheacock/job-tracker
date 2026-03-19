@@ -126,3 +126,133 @@ If this ever gets real traffic (unlikely for a portfolio project but worth knowi
 | At $150/month, consider migrating to | a VPS (Hetzner/DigitalOcean) + managed Postgres |
 
 For a portfolio project, Railway Hobby is the right call. Easy to set up, zero ops overhead, and the bill won't surprise you.
+
+---
+
+## Custom Domain: jobs.keithheacock.com
+
+The app will be accessible at `https://jobs.keithheacock.com`. This routes through the existing VPS running nginx, which reverse-proxies to Railway.
+
+**Why subdomain over path (`keithheacock.com/jobs`):**
+- No changes needed to the React app (no `basename` config, no router adjustments)
+- Cleaner nginx config — one server block, not a `location` block grafted onto an existing site
+- Reads better on a resume: `jobs.keithheacock.com` is a real URL
+
+### Architecture
+
+```
+Browser → jobs.keithheacock.com
+  → DNS (CNAME → VPS IP)
+    → nginx on VPS (TLS termination, proxy_pass)
+      → Railway (job-tracker-api service)
+        → Express app
+```
+
+Railway also issues its own `*.up.railway.app` URL. Nginx proxies to that — Railway handles the actual compute; your VPS is just the front door.
+
+### Step 1 — DNS
+
+Add a CNAME record at your DNS provider:
+
+```
+Type:  CNAME
+Name:  jobs
+Value: <your-railway-app>.up.railway.app
+TTL:   3600
+```
+
+Or if you prefer to point at the VPS IP directly (so nginx is the only entry point):
+
+```
+Type:  A
+Name:  jobs
+Value: <your VPS IP>   # 204.168.165.58
+TTL:   3600
+```
+
+Using the A record pointing to your VPS is recommended — it gives you full control at nginx and Railway's URL becomes an implementation detail.
+
+### Step 2 — nginx Config
+
+Add a new server block to your nginx config (e.g. `/etc/nginx/sites-available/jobs.keithheacock.com`):
+
+```nginx
+server {
+    listen 80;
+    server_name jobs.keithheacock.com;
+    # Redirect HTTP → HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name jobs.keithheacock.com;
+
+    # TLS — managed by Certbot (Let's Encrypt)
+    ssl_certificate     /etc/letsencrypt/live/jobs.keithheacock.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/jobs.keithheacock.com/privkey.pem;
+    include             /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
+
+    location / {
+        proxy_pass         https://<your-railway-app>.up.railway.app;
+        proxy_http_version 1.1;
+
+        # Forward original host and IP so Express/logs see the real request
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+
+        # WebSocket support (not needed now, cheap to include)
+        proxy_set_header   Upgrade           $http_upgrade;
+        proxy_set_header   Connection        "upgrade";
+    }
+}
+```
+
+### Step 3 — TLS Certificate
+
+```bash
+# On the VPS, issue a cert for the new subdomain
+sudo certbot --nginx -d jobs.keithheacock.com
+```
+
+Certbot will auto-update the nginx config with the cert paths and set up auto-renewal.
+
+### Step 4 — Enable and Reload
+
+```bash
+sudo ln -s /etc/nginx/sites-available/jobs.keithheacock.com \
+           /etc/nginx/sites-enabled/
+
+sudo nginx -t          # verify config is valid
+sudo systemctl reload nginx
+```
+
+### Step 5 — Tell Express It's Behind a Proxy
+
+Add this near the top of your Express app so `req.ip` and `req.protocol` are correct (important for rate limiting and OTel span attributes):
+
+```js
+app.set('trust proxy', 1);
+```
+
+### Step 6 — Update CORS
+
+In your Express config, add `https://jobs.keithheacock.com` to the allowed origins:
+
+```js
+cors({
+  origin: [
+    'http://localhost:5173',                    // dev
+    'https://jobs.keithheacock.com',            // prod
+  ]
+})
+```
+
+### Railway Side
+
+In the Railway dashboard, under your API service → Settings → Networking:
+- You can optionally add `jobs.keithheacock.com` as a custom domain there too, but it's not required if nginx is proxying to the `*.up.railway.app` URL. Either approach works.
+- The `*.up.railway.app` URL will remain active — you may want to restrict direct access to it so all traffic flows through your nginx/VPS. Railway doesn't have IP allowlisting on Hobby, so the simplest approach is to add a secret header check in nginx and validate it in Express middleware, but that's optional hardening for a portfolio project.

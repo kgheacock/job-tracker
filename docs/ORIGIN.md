@@ -201,3 +201,15 @@ This project was designed in a live Slack conversation on **March 18, 2026** bet
 **Cleo — 17:32**
 
 > *(See reply in Slack thread — Railway overview + cost estimate, added to DEPLOYMENT.md)*
+
+---
+
+**Keith — 17:36**
+
+> Sounds good. 1 more thing: I want this accessible on my domain: keithheacock.com which already hosts my portfolio. We will need to update the nginx config on my VPS to forward a route
+
+---
+
+**Cleo — 17:37**
+
+> Recommended subdomain (`jobs.keithheacock.com`) over path-based routing (`keithheacock.com/jobs`) — no changes to React app, cleaner nginx config, reads better on a resume. Added full setup to DEPLOYMENT.md: DNS (A record → VPS), nginx server block with TLS via Certbot, `trust proxy` Express config, CORS update.
