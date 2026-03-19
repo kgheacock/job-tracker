@@ -171,7 +171,7 @@ This project was designed in a live Slack conversation on **March 18, 2026** bet
 
 ---
 
-**Cleo — 17:22**
+**Cleo — 17:23**
 
 > Good catch on the log. Updated ARCHITECTURE.md — replaced the Logging section wholesale with an Observability section. Key changes:
 >
@@ -189,3 +189,15 @@ This project was designed in a live Slack conversation on **March 18, 2026** bet
 > - Source maps uploaded to private storage at build time; stack traces are resolved server-side, maps never served publicly
 > - Deduplication by message+stack hash to suppress noise storms
 > - Nothing sensitive (tokens, passwords, resume text, field contents) ever in the payload
+
+---
+
+**Keith — 17:32**
+
+> Sounds good. Finally, tell me about railway. What is the boundary between railway and my application? Also help me estimate cost
+
+---
+
+**Cleo — 17:32**
+
+> *(See reply in Slack thread — Railway overview + cost estimate, added to DEPLOYMENT.md)*
